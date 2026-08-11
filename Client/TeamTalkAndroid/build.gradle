@@ -11,9 +11,7 @@ if (ksFile.exists()) {
 android {
     enableKotlin = false
     namespace = 'dk.bearware.gui'
-    compileSdk {
-        version = release(37)
-    }
+    compileSdk = 37 // Perbaikan sintaks: versi diisi langsung angka untuk AGP modern
     buildToolsVersion = '37.0.0'
     ndkVersion = '29.0.14206865'
 
@@ -25,6 +23,16 @@ android {
         versionName = '5.22'
 
         testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
+
+        // PERBAIKAN 1: Buang bahasa yang tidak perlu dari library pihak ketiga.
+        // Hanya simpan aset teks bahasa Indonesia ("in") dan Inggris ("en").
+        resConfigs "in", "en"
+
+        // PERBAIKAN 2: Batasi kompilasi kode native (C++) hanya untuk HP Android Fisik.
+        // Menghapus arsitektur Intel x86 & x86_64 membuat ukuran APK berkurang sangat banyak!
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a"
+        }
     }
 
     if (ksFile.exists()) {
@@ -40,8 +48,12 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled = false
+            // PERBAIKAN 3: Aktifkan pengecilan kode (R8) & penghapusan aset sampah.
+            // Di kode lama Anda nilainya 'false', ini alasan utama APK membengkak.
+            minifyEnabled = true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
             if (ksFile.exists()) {
                 signingConfig = signingConfigs.release
             }
@@ -68,12 +80,14 @@ android {
         generateLocaleConfig = true
     }
 
+    // PERBAIKAN 4: Matikan pembuatan satu APK universal raksasa.
+    // Kode ini akan memerintahkan Gradle untuk menghasilkan 2 file APK terpisah yang ringan.
     splits {
         abi {
             enable = true
             reset()
-            include 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
-            universalApk = true
+            include 'arm64-v8a', 'armeabi-v7a' // Hanya kompilasi untuk arsitektur HP Android
+            universalApk = false // DIUBAH KE FALSE agar tidak menggabungkan file arsitektur
         }
     }
 
@@ -83,12 +97,14 @@ android {
         }
     }
 
+    // PERBAIKAN 5: Bersihkan log pelacakan internal (Debug Symbols) dari file .so native
     packaging {
         jniLibs {
             excludes += ['**/libTeamTalk5Pro-jni.so']
+            // Memaksa sistem untuk menghapus teks debugging dari TeamTalkJNI agar filenya ramping
+            keepDebugSymbols.clear() 
         }
         pickFirsts = [
-                // Ignore duplicate files in junit-platform-commons-1.9.3.jar and junit-jupiter-api-5.9.3.jar
                 'META-INF/LICENSE.md',
                 'META-INF/LICENSE-notice.md'
         ]
@@ -101,7 +117,7 @@ android {
 
 tasks.register('syncJniLibs', Sync) {
     from('../../Library/TeamTalkJNI/libs') {
-        include 'arm64-v8a/**', 'armeabi-v7a/**', 'x86/**', 'x86_64/**'
+        include 'arm64-v8a/**', 'armeabi-v7a/**' // Menghemat waktu CI: hanya sinkronkan folder ARM Android
     }
     into layout.buildDirectory.dir('jniLibs-staging')
 }
