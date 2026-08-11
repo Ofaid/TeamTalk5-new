@@ -293,7 +293,7 @@ public class ServerEntryActivity extends AppCompatActivity
         try {
             return Integer.parseInt(getString(R.string.default_port));
         } catch (NumberFormatException e) {
-            return 10333; // Fallback value
+            return 10173; // Fallback value
         }
     }
 
