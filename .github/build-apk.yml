@@ -1,7 +1,7 @@
 name: Build TeamTalk APK Custom
 
 on:
-  workflow_dispatch: # Memungkinkan Anda menjalankan build secara manual kapan saja
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,7 +22,6 @@ jobs:
         run: |
           cd Client/TeamTalkAndroid
           mkdir -p app/libs
-          # Mengambil pustaka Java TeamTalk dari folder Library internal proyek
           if [ -f "../../Library/TeamTalkJNI/libs/TeamTalk5.jar" ]; then
             cp "../../Library/TeamTalkJNI/libs/TeamTalk5.jar" app/libs/
           fi
@@ -41,4 +40,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TeamTalk5-Custom-APK
+          # Kita gunakan path yang lebih luas agar pasti ketemu
           path: Client/TeamTalkAndroid/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
