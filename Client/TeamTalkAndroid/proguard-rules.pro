@@ -116,3 +116,27 @@
   <init>();
   <fields>;
 }
+
+# =============================================================================
+# KODE TAMBAHAN UNTUK OPTIMASI & MENGECILKAN UKURAN APK
+# =============================================================================
+
+# 1. Mengamankan seluruh paket dk.bearware secara total dari penyusutan agresif
+-keep class dk.bearware.** { *; }
+
+# 2. Mengamankan library GSON yang Anda gunakan di build.gradle
+-keep class com.google.gson.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepattributes EnclosingMethod, InnerClasses
+
+# 3. Menghapus log debug bawaan dari Android untuk memangkas ukuran teks log
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+}
+
+# 4. Mengabaikan peringatan (warnings) dari library pihak ketiga saat proses build
+-dontwarn com.google.gson.**
+-dontwarn androidx.**
