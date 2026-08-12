@@ -11,7 +11,7 @@ if (ksFile.exists()) {
 android {
     enableKotlin = false
     namespace = 'dk.bearware.gui'
-    compileSdk = 37 // Perbaikan sintaks: versi diisi langsung angka untuk AGP modern
+    compileSdk = 37 
     buildToolsVersion = '37.0.0'
     ndkVersion = '29.0.14206865'
 
@@ -24,20 +24,19 @@ android {
 
         testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
 
-        // PERBAIKAN 1: Buang bahasa yang tidak perlu dari library pihak ketiga.
-        // Hanya simpan aset teks bahasa Indonesia ("in") dan Inggris ("en").
+        // PERBAIKAN 1: Buang bahasa yang tidak perlu
         resConfigs "in", "en"
 
-        // PERBAIKAN 2: Batasi kompilasi kode native (C++) hanya untuk HP Android Fisik.
-        // Menghapus arsitektur Intel x86 & x86_64 membuat ukuran APK berkurang sangat banyak!
+        // PERBAIKAN 2: Batasi arsitektur native hanya untuk HP fisik
         ndk {
             abiFilters "arm64-v8a", "armeabi-v7a"
         }
     }
 
-    if (ksFile.exists()) {
-        signingConfigs {
-            release {
+    // PERBAIKAN UTAMA: Blok signingConfigs diletakkan langsung di dalam android
+    signingConfigs {
+        release {
+            if (ksFile.exists()) {
                 storeFile = rootProject.file(ks['storeFile'])
                 storePassword = ks['storePassword']
                 keyAlias = ks['keyAlias']
@@ -48,8 +47,7 @@ android {
 
     buildTypes {
         release {
-            // PERBAIKAN 3: Aktifkan pengecilan kode (R8) & penghapusan aset sampah.
-            // Di kode lama Anda nilainya 'false', ini alasan utama APK membengkak.
+            // PERBAIKAN 3: Optimalisasi ukuran APK lewat R8
             minifyEnabled = true
             shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -59,7 +57,7 @@ android {
             }
         }
         debug {
-            if (ks['signDebug']?.toBoolean()) {
+            if (ksFile.exists() && ks['signDebug']?.toBoolean()) {
                 signingConfig = signingConfigs.release
             }
         }
@@ -80,28 +78,27 @@ android {
         generateLocaleConfig = true
     }
 
-    // PERBAIKAN 4: Matikan pembuatan satu APK universal raksasa.
-    // Kode ini akan memerintahkan Gradle untuk menghasilkan 2 file APK terpisah yang ringan.
+    // PERBAIKAN 4: Pemisahan APK per arsitektur (Ramping)
     splits {
         abi {
             enable = true
             reset()
-            include 'arm64-v8a', 'armeabi-v7a' // Hanya kompilasi untuk arsitektur HP Android
-            universalApk = false // DIUBAH KE FALSE agar tidak menggabungkan file arsitektur
+            include 'arm64-v8a', 'armeabi-v7a'
+            universalApk = false 
         }
     }
 
     sourceSets {
         main {
-            jniLibs.srcDirs = [layout.buildDirectory.dir('jniLibs-staging')]
+            // PERBAIKAN SINTAKS: Menggunakan jalur string statis untuk menghindari circular dependency
+            jniLibs.srcDirs = ["${project.buildDir}/jniLibs-staging"]
         }
     }
 
-    // PERBAIKAN 5: Bersihkan log pelacakan internal (Debug Symbols) dari file .so native
+    // PERBAIKAN 5: Pembersihan Debug Symbols
     packaging {
         jniLibs {
-            excludes += ['**/libTeamTalk5Pro-jni.so']
-            // Memaksa sistem untuk menghapus teks debugging dari TeamTalkJNI agar filenya ramping
+            excludes.add('**/libTeamTalk5Pro-jni.so')
             keepDebugSymbols.clear() 
         }
         pickFirsts = [
@@ -117,7 +114,7 @@ android {
 
 tasks.register('syncJniLibs', Sync) {
     from('../../Library/TeamTalkJNI/libs') {
-        include 'arm64-v8a/**', 'armeabi-v7a/**' // Menghemat waktu CI: hanya sinkronkan folder ARM Android
+        include 'arm64-v8a/**', 'armeabi-v7a/**'
     }
     into layout.buildDirectory.dir('jniLibs-staging')
 }
@@ -148,3 +145,4 @@ dependencies {
     androidTestImplementation libs.junit.jupiter.api
     androidTestImplementation files('../../Library/TeamTalkJNI/libs/TeamTalk5Test.jar')
 }
+
