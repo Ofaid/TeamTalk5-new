@@ -32,14 +32,14 @@ jobs:
         ndk-version: r29
         add-to-path: false
 
-    # PERBAIKAN 1: Mengaktifkan cache bawaan GitHub untuk Gradle dan kompilasi C++
+    # Mengaktifkan cache bawaan GitHub untuk Gradle dan kompilasi C++
     - name: Set up Gradle
       uses: gradle/actions/setup-gradle@v6
       with:
         validate-wrappers: true
         cache-read-only: false
 
-    # PERBAIKAN 2: Gunakan Cache untuk folder WebRTC dan Install Android agar tidak compile dari nol
+    # Menggunakan Cache untuk folder WebRTC dan Install Android agar tidak compile dari nol
     - name: Cache Native Builds
       uses: actions/cache@v4
       with:
@@ -66,13 +66,10 @@ jobs:
       working-directory: ${{github.workspace}}/Build
       run: sudo make depend-ubuntu24-android
 
-    # PERBAIKAN 3: Ganti "android-all" menjadi "android-arm64-v8a" dan "android-armeabi-v7a" saja
-    # Menghapus kompilasi Intel x86 dan x86_64 memotong waktu build native hingga 50%!
-    - name: Build TeamTalk library for Android (ARM Only)
+    # PERBAIKAN UTAMA: Mengembalikan ke "android-all" agar Makefile C++ TeamTalk sukses 100% tanpa error libACE.a
+    - name: Build TeamTalk library for Android
       working-directory: ${{github.workspace}}/Build
-      run: |
-        make CMAKE_EXTRA="-G Ninja -DWEBRTC_FETCH_PATH=${{runner.workspace}}/webrtc -DCMAKE_INSTALL_PREFIX=${{runner.workspace}}/install-android" CMAKE_BUILD_EXTRA="--target install" android-arm64-v8a
-        make CMAKE_EXTRA="-G Ninja -DWEBRTC_FETCH_PATH=${{runner.workspace}}/webrtc -DCMAKE_INSTALL_PREFIX=${{runner.workspace}}/install-android" CMAKE_BUILD_EXTRA="--target install" android-armeabi-v7a
+      run: make CMAKE_EXTRA="-G Ninja -DWEBRTC_FETCH_PATH=${{runner.workspace}}/webrtc -DCMAKE_INSTALL_PREFIX=${{runner.workspace}}/install-android" CMAKE_BUILD_EXTRA="--target install" android-all
       env:
         ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
@@ -87,8 +84,7 @@ jobs:
         keyPassword=android
         EOF
 
-    # PERBAIKAN 4: Ganti "./gradlew build" menjadi "./gradlew assembleRelease"
-    # Perintah 'build' sangat berat karena menjalankan test & lint. 'assembleRelease' fokus membuat APK kecil secara paralel.
+    # Fokus membuat APK Release kecil secara paralel memanfaatkan CPU server virtual
     - name: Build TeamTalk Android client (Release Mode)
       working-directory: ${{github.workspace}}/Client/TeamTalkAndroid
       run: ./gradlew assembleRelease --no-daemon --parallel
