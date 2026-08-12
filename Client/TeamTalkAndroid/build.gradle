@@ -11,7 +11,9 @@ if (ksFile.exists()) {
 android {
     enableKotlin = false
     namespace = 'dk.bearware.gui'
-    compileSdk = 37 
+    compileSdk {
+        version = release(37)
+    }
     buildToolsVersion = '37.0.0'
     ndkVersion = '29.0.14206865'
 
@@ -23,20 +25,11 @@ android {
         versionName = '5.22'
 
         testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
-
-        // PERBAIKAN 1: Buang bahasa yang tidak perlu
-        resConfigs "in", "en"
-
-        // PERBAIKAN 2: Batasi arsitektur native hanya untuk HP fisik
-        ndk {
-            abiFilters "arm64-v8a", "armeabi-v7a"
-        }
     }
 
-    // PERBAIKAN UTAMA: Blok signingConfigs diletakkan langsung di dalam android
-    signingConfigs {
-        release {
-            if (ksFile.exists()) {
+    if (ksFile.exists()) {
+        signingConfigs {
+            release {
                 storeFile = rootProject.file(ks['storeFile'])
                 storePassword = ks['storePassword']
                 keyAlias = ks['keyAlias']
@@ -47,17 +40,14 @@ android {
 
     buildTypes {
         release {
-            // PERBAIKAN 3: Optimalisasi ukuran APK lewat R8
-            minifyEnabled = true
-            shrinkResources = true
+            minifyEnabled = false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            
             if (ksFile.exists()) {
                 signingConfig = signingConfigs.release
             }
         }
         debug {
-            if (ksFile.exists() && ks['signDebug']?.toBoolean()) {
+            if (ks['signDebug']?.toBoolean()) {
                 signingConfig = signingConfigs.release
             }
         }
@@ -78,30 +68,27 @@ android {
         generateLocaleConfig = true
     }
 
-    // PERBAIKAN 4: Pemisahan APK per arsitektur (Ramping)
     splits {
         abi {
             enable = true
             reset()
-            include 'arm64-v8a', 'armeabi-v7a'
-            universalApk = false 
+            include 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
+            universalApk = true
         }
     }
 
     sourceSets {
         main {
-            // PERBAIKAN SINTAKS: Menggunakan jalur string statis untuk menghindari circular dependency
-            jniLibs.srcDirs = ["${project.buildDir}/jniLibs-staging"]
+            jniLibs.srcDirs = [layout.buildDirectory.dir('jniLibs-staging')]
         }
     }
 
-    // PERBAIKAN 5: Pembersihan Debug Symbols
     packaging {
         jniLibs {
-            excludes.add('**/libTeamTalk5Pro-jni.so')
-            keepDebugSymbols.clear() 
+            excludes += ['**/libTeamTalk5Pro-jni.so']
         }
         pickFirsts = [
+                // Ignore duplicate files in junit-platform-commons-1.9.3.jar and junit-jupiter-api-5.9.3.jar
                 'META-INF/LICENSE.md',
                 'META-INF/LICENSE-notice.md'
         ]
@@ -114,7 +101,7 @@ android {
 
 tasks.register('syncJniLibs', Sync) {
     from('../../Library/TeamTalkJNI/libs') {
-        include 'arm64-v8a/**', 'armeabi-v7a/**'
+        include 'arm64-v8a/**', 'armeabi-v7a/**', 'x86/**', 'x86_64/**'
     }
     into layout.buildDirectory.dir('jniLibs-staging')
 }
@@ -145,4 +132,3 @@ dependencies {
     androidTestImplementation libs.junit.jupiter.api
     androidTestImplementation files('../../Library/TeamTalkJNI/libs/TeamTalk5Test.jar')
 }
-
